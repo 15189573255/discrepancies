@@ -1,0 +1,104 @@
+# =================================
+# Wails 构建输出
+# =================================
+build/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# =================================
+# Go 相关
+# =================================
+# Go 测试二进制文件
+*.test
+# Go 覆盖率输出
+*.out
+# Go 工作区文件
+go.work
+go.work.sum
+# 依赖目录（如使用 vendor）
+vendor/
+
+# =================================
+# 前端相关
+# =================================
+# Node.js 依赖
+frontend/node_modules/
+node_modules/
+
+# 前端构建产物
+frontend/dist/
+
+# Vite 缓存
+frontend/.vite/
+
+# TypeScript 缓存
+*.tsbuildinfo
+
+# =================================
+# IDE 和编辑器
+# =================================
+# JetBrains (GoLand, WebStorm, IntelliJ)
+.idea/
+
+# Visual Studio Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Sublime Text
+*.sublime-workspace
+
+# =================================
+# 操作系统生成文件
+# =================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# =================================
+# 项目特定忽略
+# =================================
+# Claude Code 上下文文件
+CLAUDE.md
+
+# Spec Workflow 工作目录
+.spec-workflow/
+
+# 应用配置目录（用户本地配置）
+.discrepancies/
+
+# =================================
+# 日志和临时文件
+# =================================
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+
+# =================================
+# 调试相关
+# =================================
+debug/
+*.pdb
