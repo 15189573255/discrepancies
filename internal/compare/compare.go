@@ -462,3 +462,67 @@ func GenerateZipName(baseName string) string {
 	currentTime := time.Now()
 	return fmt.Sprintf("%s_差分_%s.zip", baseName, currentTime.Format("2006年01月02日"))
 }
+
+// ExportDiffsToZip 直接将差异文件导出为 ZIP（不创建中间文件夹）
+func ExportDiffsToZip(items []models.DiffItem, zipPath string, onProgress func(current, total int, message string)) error {
+	selectedItems := make([]models.DiffItem, 0)
+	for _, item := range items {
+		if item.Selected && item.Type != "deleted" {
+			selectedItems = append(selectedItems, item)
+		}
+	}
+
+	if len(selectedItems) == 0 {
+		return fmt.Errorf("没有选中的文件")
+	}
+
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		return fmt.Errorf("failed to create zip file: %w", err)
+	}
+	defer zipFile.Close()
+
+	writer := zip.NewWriter(zipFile)
+	defer writer.Close()
+
+	for i, item := range selectedItems {
+		if onProgress != nil {
+			onProgress(i+1, len(selectedItems), fmt.Sprintf("打包: %s", item.RelPath))
+		}
+
+		// 读取源文件
+		file, err := os.Open(item.SourcePath)
+		if err != nil {
+			return fmt.Errorf("failed to open file %s: %w", item.RelPath, err)
+		}
+
+		info, err := file.Stat()
+		if err != nil {
+			file.Close()
+			return fmt.Errorf("failed to stat file %s: %w", item.RelPath, err)
+		}
+
+		// 创建 ZIP 条目
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			file.Close()
+			return fmt.Errorf("failed to create header for %s: %w", item.RelPath, err)
+		}
+		header.Name = filepath.ToSlash(item.RelPath)
+		header.Method = zip.Deflate
+
+		w, err := writer.CreateHeader(header)
+		if err != nil {
+			file.Close()
+			return fmt.Errorf("failed to create zip entry for %s: %w", item.RelPath, err)
+		}
+
+		_, err = io.Copy(w, file)
+		file.Close()
+		if err != nil {
+			return fmt.Errorf("failed to write file %s to zip: %w", item.RelPath, err)
+		}
+	}
+
+	return nil
+}

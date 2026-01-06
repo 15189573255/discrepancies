@@ -194,16 +194,24 @@ func (a *App) ExportDiffs(items []models.DiffItem, outputDir string) error {
 	})
 }
 
-// CreateZip 创建 ZIP 压缩包
-func (a *App) CreateZip(sourceDir, baseName string) (string, error) {
-	if sourceDir == "" {
-		return "", fmt.Errorf("请指定源目录")
+// ExportToZip 直接将选中的差异文件导出为 ZIP
+func (a *App) ExportToZip(items []models.DiffItem, outputDir, baseName string) (string, error) {
+	if outputDir == "" {
+		return "", fmt.Errorf("请选择输出目录")
 	}
 
 	zipName := compare.GenerateZipName(baseName)
-	zipPath := filepath.Join(filepath.Dir(sourceDir), zipName)
+	zipPath := filepath.Join(outputDir, zipName)
 
-	if err := compare.CreateZip(sourceDir, zipPath); err != nil {
+	err := compare.ExportDiffsToZip(items, zipPath, func(current, total int, message string) {
+		runtime.EventsEmit(a.ctx, "backend:progress", models.ProgressEvent{
+			Current: current,
+			Total:   total,
+			Message: message,
+		})
+	})
+
+	if err != nil {
 		return "", err
 	}
 

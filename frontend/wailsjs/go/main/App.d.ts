@@ -6,9 +6,9 @@ export function AddExcludeRule(arg1:models.ExcludeRule):Promise<void>;
 
 export function Compare(arg1:string,arg2:string):Promise<models.CompareResult>;
 
-export function CreateZip(arg1:string,arg2:string):Promise<string>;
-
 export function ExportDiffs(arg1:Array<models.DiffItem>,arg2:string):Promise<void>;
+
+export function ExportToZip(arg1:Array<models.DiffItem>,arg2:string,arg3:string):Promise<string>;
 
 export function GetConfig():Promise<models.Config>;
 

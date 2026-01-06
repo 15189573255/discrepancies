@@ -10,12 +10,12 @@ export function Compare(arg1, arg2) {
   return window['go']['main']['App']['Compare'](arg1, arg2);
 }
 
-export function CreateZip(arg1, arg2) {
-  return window['go']['main']['App']['CreateZip'](arg1, arg2);
-}
-
 export function ExportDiffs(arg1, arg2) {
   return window['go']['main']['App']['ExportDiffs'](arg1, arg2);
+}
+
+export function ExportToZip(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExportToZip'](arg1, arg2, arg3);
 }
 
 export function GetConfig() {

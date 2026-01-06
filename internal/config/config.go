@@ -131,12 +131,20 @@ func (m *Manager) SetLastOutputDir(path string) error {
 
 // GetDefaultOutputDir 获取默认输出目录
 func (m *Manager) GetDefaultOutputDir() string {
+	// 如果有上次保存的输出目录且目录存在，使用它
 	if m.config.LastOutputDir != "" {
-		return m.config.LastOutputDir
+		if _, err := os.Stat(m.config.LastOutputDir); err == nil {
+			return m.config.LastOutputDir
+		}
 	}
-	// 默认使用用户文档目录
+	// 默认使用用户文档目录（确保目录存在）
 	homeDir, _ := os.UserHomeDir()
-	return filepath.Join(homeDir, "Documents", "Discrepancies_Output")
+	documentsDir := filepath.Join(homeDir, "Documents")
+	if _, err := os.Stat(documentsDir); err == nil {
+		return documentsDir
+	}
+	// 如果文档目录也不存在，返回用户主目录
+	return homeDir
 }
 
 // GetExcludeRules 获取排除规则

@@ -7,7 +7,7 @@
     Compare,
     GetTextDiff,
     ExportDiffs,
-    CreateZip,
+    ExportToZip,
     GetConfig,
     GetZipRootFolder,
     GetExcludeRules,
@@ -75,9 +75,27 @@
   let newRule: ExcludeRule = { pattern: '', type: 'glob', isDir: false, enabled: true, comment: '' };
   let editingIndex: number | null = null;
 
+  // Diff navigation state
+  let diffLineIndices: number[] = [];
+  let currentDiffPosition = -1;
+  let diffContainer: HTMLElement;
+
   // Computed
   $: selectedCount = diffItems.filter(i => i.selected && i.type !== 'deleted').length;
   $: allSelected = diffItems.length > 0 && diffItems.every(item => item.selected);
+
+  // 计算差异行索引（当 textDiff 变化时）
+  $: {
+    if (textDiff && textDiff.lines) {
+      diffLineIndices = textDiff.lines
+        .map((line, index) => (line.type === 'insert' || line.type === 'delete') ? index : -1)
+        .filter(index => index !== -1);
+      currentDiffPosition = diffLineIndices.length > 0 ? 0 : -1;
+    } else {
+      diffLineIndices = [];
+      currentDiffPosition = -1;
+    }
+  }
 
   onMount(async () => {
     try {
@@ -212,7 +230,7 @@
     }
   }
 
-  async function doExportAndZip() {
+  async function doExportToZip() {
     const selectedItems = diffItems.filter(item => item.selected && item.type !== 'deleted');
     if (selectedItems.length === 0) {
       showError('请选择要导出的文件');
@@ -226,16 +244,14 @@
 
     clearMessages();
     isExporting = true;
-    progressMessage = '正在导出...';
+    progressMessage = '正在打包...';
 
     try {
-      await ExportDiffs(selectedItems, outputDir);
-      progressMessage = '正在创建 ZIP...';
       const rootFolder = await GetZipRootFolder(zipPath);
-      const zipFilePath = await CreateZip(outputDir, rootFolder || 'output');
+      const zipFilePath = await ExportToZip(selectedItems, outputDir, rootFolder || 'output');
       showSuccess(`成功创建: ${zipFilePath}`);
     } catch (e) {
-      showError('操作失败: ' + e);
+      showError('打包失败: ' + e);
     } finally {
       isExporting = false;
       progressMessage = '';
@@ -276,6 +292,37 @@
 
   function getFileName(path: string): string {
     return path.split('/').pop() || path;
+  }
+
+  // Diff navigation functions
+  function goToPrevDiff() {
+    if (diffLineIndices.length === 0) return;
+    currentDiffPosition = currentDiffPosition > 0 ? currentDiffPosition - 1 : diffLineIndices.length - 1;
+    scrollToDiffLine(diffLineIndices[currentDiffPosition]);
+  }
+
+  function goToNextDiff() {
+    if (diffLineIndices.length === 0) return;
+    currentDiffPosition = currentDiffPosition < diffLineIndices.length - 1 ? currentDiffPosition + 1 : 0;
+    scrollToDiffLine(diffLineIndices[currentDiffPosition]);
+  }
+
+  function scrollToDiffLine(lineIndex: number) {
+    if (!diffContainer) return;
+    const lineElement = diffContainer.querySelector(`[data-line-index="${lineIndex}"]`);
+    if (lineElement) {
+      lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function handleDiffKeydown(event: KeyboardEvent) {
+    if (event.key === 'ArrowUp' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      goToPrevDiff();
+    } else if (event.key === 'ArrowDown' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      goToNextDiff();
+    }
   }
 
   // Settings functions
@@ -588,25 +635,56 @@
     </div>
 
     <!-- Right: Diff Preview -->
-    <div class="flex-1 card flex flex-col min-w-0">
+    <div class="flex-1 card flex flex-col min-w-0" on:keydown={handleDiffKeydown} tabindex="-1">
       <!-- Header -->
       <div class="px-5 py-4 border-b border-zinc-200">
         <div class="flex items-center justify-between">
           <h2 class="text-base font-semibold text-zinc-900">差异预览</h2>
-          {#if selectedItem}
-            <span class="text-xs text-zinc-500 truncate max-w-xs">{selectedItem.relPath}</span>
-          {/if}
+          <div class="flex items-center gap-3">
+            {#if diffLineIndices.length > 0}
+              <div class="flex items-center gap-1">
+                <button
+                  class="p-1.5 rounded hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700 transition-colors"
+                  on:click={goToPrevDiff}
+                  title="上一个差异 (Ctrl+↑)"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+                <span class="text-xs text-zinc-500 min-w-[4rem] text-center">
+                  {currentDiffPosition + 1} / {diffLineIndices.length}
+                </span>
+                <button
+                  class="p-1.5 rounded hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700 transition-colors"
+                  on:click={goToNextDiff}
+                  title="下一个差异 (Ctrl+↓)"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+            {/if}
+            {#if selectedItem}
+              <span class="text-xs text-zinc-500 truncate max-w-xs">{selectedItem.relPath}</span>
+            {/if}
+          </div>
         </div>
       </div>
 
       <!-- Content -->
-      <div class="flex-1 overflow-auto">
+      <div class="flex-1 overflow-auto" bind:this={diffContainer}>
         {#if textDiff && textDiff.lines.length > 0}
           <div class="font-mono text-xs leading-relaxed">
             {#each textDiff.lines as line, i}
-              <div class="flex hover:bg-zinc-50
-                          {line.type === 'insert' ? 'bg-emerald-50' : ''}
-                          {line.type === 'delete' ? 'bg-red-50' : ''}">
+              <div
+                class="flex hover:bg-zinc-50
+                       {line.type === 'insert' ? 'bg-emerald-50' : ''}
+                       {line.type === 'delete' ? 'bg-red-50' : ''}
+                       {diffLineIndices[currentDiffPosition] === i ? 'ring-2 ring-inset ring-blue-400' : ''}"
+                data-line-index={i}
+              >
                 <span class="w-12 px-2 py-0.5 text-right text-zinc-400 select-none border-r border-zinc-200 flex-shrink-0">
                   {i + 1}
                 </span>
@@ -675,13 +753,13 @@
       </button>
       <button
         class="btn btn-primary"
-        on:click={doExportAndZip}
+        on:click={doExportToZip}
         disabled={isExporting || selectedCount === 0}
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
         </svg>
-        导出并打包
+        导出为 ZIP
       </button>
     </div>
   </div>
